@@ -247,7 +247,7 @@ require("blink.cmp").setup({
 
             draw = {
                 -- Cleans up the visual clutter by organizing columns neatly
-                columns = { { "label", "label_description", gap = 1 }, { "kind_icon", "kind" } },
+                columns = { { "label", "label_description", gap = 1 }, { "kind_icon", "kind", gap = 1 } },
             }
         },
         documentation = {
