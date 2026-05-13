@@ -238,22 +238,11 @@ pack_add({
 require("blink.cmp").setup({
     completion = {
         menu = {
-            -- "single" gives sharp, clean, minimalistic edges instead of rounded
-            border = "single",
-
-            -- Adds a slight transparency to the menu for a more atmospheric feel
-            -- (requires termguicolors to be set, and a terminal that supports transparency)
             winblend = 10,
-
-            draw = {
-                -- Cleans up the visual clutter by organizing columns neatly
-                columns = { { "label", "label_description", gap = 1 }, { "kind_icon", "kind", gap = 1 } },
-            }
         },
         documentation = {
             auto_show = true,
             window = {
-                border = "single",
                 winblend = 10,
             }
         }
@@ -262,7 +251,6 @@ require("blink.cmp").setup({
     signature = {
         enabled = true,
         window = {
-            border = "single",
             winblend = 10,
         }
     },
@@ -362,9 +350,6 @@ require("noice").setup({
         },
         hover = {
             enabled = true, -- Let noice handle standard LSP hover (the 'K' keybind)
-            border = {
-                style = "single"
-            },
         },
         signature = {
             -- Disable noice's signature help so it doesn't clash with blink.cmp
@@ -375,19 +360,13 @@ require("noice").setup({
         bottom_search = true,
         command_palette = true,
         long_message_to_split = true,
-        inc_rename = false,
-        lsp_doc_border = true, -- Gives hover docs a nice border
+        inc_rename = true,
+        lsp_doc_border = true,
     },
     views = {
-        -- 1. The LSP Hover Window
         hover = {
-            border = {
-                style = "single",
-            },
             win_options = {
                 winblend = 10, -- Matches your blink.cmp setting
-                -- Optional: You can also change the background color highlight group here
-                -- winhighlight = "Normal:NormalFloat,FloatBorder:FloatBorder",
             },
         },
 
