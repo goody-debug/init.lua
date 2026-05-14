@@ -85,11 +85,15 @@ local pack_add = vim.pack.add
 pack_add({ "https://github.com/shaunsingh/nord.nvim" })
 vim.cmd.colorscheme("nord")
 
+pack_add({"https://github.com/brenton-leighton/multiple-cursors.nvim"})
+require("multiple-cursors").setup()
+map("i","<C-LeftMouse>", "<Cmd>MultipleCursorsMouseAddDelete<CR>", {desc = "Add or remove cursor on mouse click"})
+map("n","<C-LeftMouse>", "<Cmd>MultipleCursorsMouseAddDelete<CR>", {desc = "Add or remove cursor on mouse click"})
+
 -- Mini Suite
 pack_add({ { src = "https://github.com/nvim-mini/mini.nvim", version = "stable" } })
 require("mini.bracketed").setup()
 require("mini.surround").setup()
-require("mini.cursorword").setup()
 require("mini.pairs").setup()
 require("mini.move").setup()
 require("mini.jump").setup()
@@ -335,7 +339,12 @@ require("mason-nvim-dap").setup({
     ensure_installed = {
         "Codelldb",
         "python",
-    }
+    },
+    handlers = {
+        function(config)
+            require("mason-nvim-dap").default_setup(config)
+        end
+    },
 })
 
 local dap = require('dap')
