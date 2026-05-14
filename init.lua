@@ -337,7 +337,7 @@ pack_add({
 require("godotdev").setup()
 require("mason-nvim-dap").setup({
     ensure_installed = {
-        "Codelldb",
+        "codelldb",
         "python",
     },
     handlers = {
