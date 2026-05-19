@@ -457,3 +457,16 @@ require("inc_rename").setup()
 vim.keymap.set("n", "<leader>rn", function()
     return ":IncRename " .. vim.fn.expand("<cword>")
 end, { expr = true, desc = "Rename" })
+
+vim.pack.add({
+  {
+    src = 'https://github.com/S1M0N38/love2d.nvim',
+    version = vim.version.range('3'),
+  },
+})
+require('love2d').setup({})
+vim.keymap.set('n', '<leader>vr', '<cmd>Love run<cr>',    { desc = 'Run LÖVE' })
+vim.keymap.set('n', '<leader>vw', '<cmd>Love watch<cr>',  { desc = 'Watch LÖVE' })
+vim.keymap.set('n', '<leader>vi', '<cmd>Love info<cr>',   { desc = 'Info LÖVE' })
+vim.keymap.set('n', '<leader>vs', '<cmd>Love stop<cr>',   { desc = 'Stop LÖVE' })
+vim.keymap.set('n', '<leader>vo', '<cmd>Love output<cr>', { desc = 'Output panel' })
