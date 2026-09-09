@@ -45,6 +45,9 @@ keymap("n", "<Esc>", ":nohlsearch<CR><Esc>", { silent = true })
 keymap("i", "jj", "<Esc>", { silent = true })
 keymap("n", "<leader>x", ":bdelete!<CR>", { silent = true })
 
+keymap.set({"n", "v"}, "<Leader>y", '"+y')
+keymap.set({"n", "v"}, "<Leader>p", '"+p')
+
 vim.diagnostic.config({
   float = { border = "rounded", max_width = 80 },
   signs = false,
