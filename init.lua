@@ -8,10 +8,9 @@ vim.cmd("syntax on")
 
 opt.number = false
 opt.cursorline = false
-opt.fillchars:append({ eob = " " })
 opt.expandtab = true
 opt.tabstop = 4
-opt.cmdheight = 0
+opt.cmdheight = 1
 opt.shiftwidth = 4
 opt.softtabstop = 4
 opt.autoindent = true
@@ -36,6 +35,9 @@ opt.guicursor = "n-v-c:block,i-ci-ve:ver25,r-cr:hor20,o:hor50"
 
 opt.foldmethod = "expr"
 opt.foldexpr = "v:lua.vim.treesitter.foldexpr()"
+
+vim.opt.fillchars = { fold = ' '}
+
 opt.foldtext = ""
 opt.foldlevel = 99
 opt.foldlevelstart = 99
@@ -105,11 +107,37 @@ require("lazy").setup({
           end
 
           local italic_groups = {
-            "Boolean", "Conditional", "Exception", "Include", 
-            "Repeat", "Statement", "Type", "String", 
-            "@boolean", "@conditional", "@exception",
-            "@include", "@repeat", "@type", "@string"
-          }
+            -- Comments and Strings
+            "Comment", "String",
+            "@comment", "@string",
+
+            -- Keywords
+            "Keyword", "Statement", "Conditional", "Repeat", "Exception", "Include",
+            "@keyword", "@conditional", "@repeat", "@exception", "@include",
+            "@keyword.conditional", "@keyword.repeat", "@keyword.exception", "@keyword.import", -- Neovim 0.9+
+
+            -- Built-in constants (constant.language, support.constant)
+            "Boolean", "Constant",
+            "@boolean", "@constant.builtin",
+
+            -- Storage types and Library classes/types (storage.type, support.type, support.class)
+            "Type", "StorageClass", "Structure",
+            "@type", "@type.builtin", "@type.qualifier", "@keyword.modifier", "@keyword.type",
+
+            -- Language variables (variable.language e.g., 'this', 'self', 'super')
+            "@variable.builtin",
+
+            -- Library functions and macros (support.function, support.macro)
+            "Macro",
+            "@function.builtin", "@function.macro",
+
+            -- Markup italics
+            "markdownItalic", "@markup.italic",
+
+            -- Tags (for Odin and HTML/XML)
+            "@tag", "@tag.attribute"
+        }
+
           for _, group in ipairs(italic_groups) do
             local hl = vim.api.nvim_get_hl(0, { name = group, link = false })
             hl.italic = true
@@ -153,34 +181,24 @@ require("lazy").setup({
           })
         end
       },
-      'nvim-treesitter/nvim-treesitter',
+      {
+          'nvim-treesitter/nvim-treesitter',
+          config = function()
+              vim.api.nvim_create_autocmd("FileType", {
+                  pattern = "odin",
+                  callback = function()
+                      vim.treesitter.start()
+                  end,
+              })
+            end
+      },
       'nvim-tree/nvim-web-devicons',
     },
     config = function()
       local capabilities = require('blink.cmp').get_lsp_capabilities()
       
-      vim.lsp.config('rust_analyzer', {
-        cmd = { 'rust-analyzer' },
-        filetypes = { 'rust' },
-        root_markers = { 'Cargo.toml', 'rust-project.json' },
-        capabilities = capabilities,
-        settings = {
-          ['rust-analyzer'] = {
-            checkOnSave = true,
-            check = {
-              command = "clippy",
-            },
-            cargo = {
-              allFeatures = true,
-            },
-            procMacro = { enable = true },
-          },
-        },
-      })
-      vim.lsp.enable('rust_analyzer')
-
-      vim.lsp.config('ty', {})
       vim.lsp.enable('ty')
+      vim.lsp.enable('ols')
 
       vim.api.nvim_create_autocmd('LspAttach', {
         callback = function(event)
@@ -205,14 +223,14 @@ require("lazy").setup({
     build = 'cargo build --release',
     opts = {
       keymap = {
-        preset = 'super-tab'
+        preset = 'super-tab',
       },
       completion = {
         menu = {
           border = 'rounded',
-          draw = { columns = { { "label", "label_description", gap = 1 }, { "kind" } } }
+          draw = { columns = { { "label" }, { "kind" } } }
         },
-        documentation = { auto_show = true, window = { border = 'rounded' } }
+        documentation = { auto_show = false, window = { border = 'rounded' } }
       },
       sources = { default = { 'lsp', 'path', 'snippets', 'buffer' } },
     }
@@ -238,18 +256,20 @@ require("lazy").setup({
         }
       }
 
-      dap.configurations.rust = {
-        {
-          name = "Launch Rust Binary",
-          type = "codelldb",
-          request = "launch",
-          program = function()
-            return vim.fn.input('Path to executable: ', vim.fn.getcwd() .. '/target/debug/', 'file')
-          end,
-          cwd = '${workspaceFolder}',
-          stopOnEntry = false,
-        },
-      }
+    dap.configurations.odin = {
+      {
+        name = "Launch Odin Binary",
+        type = "codelldb",
+        request = "launch",
+        program = function()
+          local default_path = vim.fn.getcwd() .. '/' .. vim.fn.fnamemodify(vim.fn.getcwd(), ':t')
+          return vim.fn.input('Path to executable: ', default_path, 'file')
+        end,
+        cwd = '${workspaceFolder}',
+        stopOnEntry = false,
+        args = {},
+      },
+    }
 
       dap.listeners.before.attach.dapui_config = function() dapui.open() end
       dap.listeners.before.launch.dapui_config = function() dapui.open() end
@@ -327,3 +347,4 @@ vim.api.nvim_set_hl(0, "BlinkCmpMenu", { link = "NormalFloat" })
 vim.api.nvim_set_hl(0, "BlinkCmpMenuBorder", { link = "FloatBorder" })
 vim.api.nvim_set_hl(0, "BlinkCmpDoc", { link = "NormalFloat" })
 vim.api.nvim_set_hl(0, "BlinkCmpDocBorder", { link = "FloatBorder" })
+opt.fillchars:append({ eob = " " })
