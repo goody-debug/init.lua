@@ -1,7 +1,9 @@
+-- Leader keys
 vim.g.mapleader = " "
 vim.g.maplocalleader = " "
 vim.keymap.set({ 'n', 'v' }, '<Space>', '<Nop>', { silent = true })
 
+-- Base options
 local opt = vim.opt
 vim.cmd("filetype plugin indent on")
 vim.cmd("syntax on")
@@ -10,7 +12,7 @@ opt.number = false
 opt.cursorline = false
 opt.expandtab = true
 opt.tabstop = 4
-opt.cmdheight = 1
+opt.cmdheight = 0
 opt.shiftwidth = 4
 opt.softtabstop = 4
 opt.autoindent = true
@@ -33,29 +35,30 @@ opt.undofile = true
 opt.undodir = vim.fn.expand("~/.config/nvim/undodir")
 opt.guicursor = "n-v-c:block,i-ci-ve:ver25,r-cr:hor20,o:hor50"
 
+-- Folds
 opt.foldmethod = "expr"
 opt.foldexpr = "v:lua.vim.treesitter.foldexpr()"
-
-vim.opt.fillchars = { fold = ' '}
-
+vim.opt.fillchars = { fold = ' ' }
 opt.foldtext = ""
 opt.foldlevel = 99
 opt.foldlevelstart = 99
 
+-- Keymaps
 local keymap = vim.keymap.set
 keymap("n", "<Esc>", ":nohlsearch<CR><Esc>", { silent = true })
 keymap("i", "jj", "<Esc>", { silent = true })
 keymap("n", "<leader>x", ":bdelete!<CR>", { silent = true })
-
 keymap({"n", "v"}, "<Leader>y", '"+y')
 keymap({"n", "v"}, "<Leader>p", '"+p')
 
+-- Diagnostics
 vim.diagnostic.config({
   float = { border = "rounded", max_width = 80 },
   signs = false,
   underline = true,
 })
 
+-- Lazy bootstrap
 local lazypath = vim.fn.stdpath("data") .. "/lazy/lazy.nvim"
 if not vim.loop.fs_stat(lazypath) then
   vim.fn.system({
@@ -65,8 +68,8 @@ if not vim.loop.fs_stat(lazypath) then
 end
 vim.opt.rtp:prepend(lazypath)
 
+-- Plugins
 require("lazy").setup({
-
   {
     'gbprod/nord.nvim',
     lazy = false,
@@ -107,36 +110,36 @@ require("lazy").setup({
           end
 
           local italic_groups = {
-            -- Comments and Strings
+            -- Comments/Strings
             "Comment", "String",
             "@comment", "@string",
 
             -- Keywords
             "Keyword", "Statement", "Conditional", "Repeat", "Exception", "Include",
             "@keyword", "@conditional", "@repeat", "@exception", "@include",
-            "@keyword.conditional", "@keyword.repeat", "@keyword.exception", "@keyword.import", -- Neovim 0.9+
+            "@keyword.conditional", "@keyword.repeat", "@keyword.exception", "@keyword.import",
 
-            -- Built-in constants (constant.language, support.constant)
+            -- Constants
             "Boolean", "Constant",
             "@boolean", "@constant.builtin",
 
-            -- Storage types and Library classes/types (storage.type, support.type, support.class)
+            -- Types/Classes
             "Type", "StorageClass", "Structure",
             "@type", "@type.builtin", "@type.qualifier", "@keyword.modifier", "@keyword.type",
 
-            -- Language variables (variable.language e.g., 'this', 'self', 'super')
+            -- Variables
             "@variable.builtin",
 
-            -- Library functions and macros (support.function, support.macro)
+            -- Macros/Functions
             "Macro",
             "@function.builtin", "@function.macro",
 
-            -- Markup italics
+            -- Markup
             "markdownItalic", "@markup.italic",
 
-            -- Tags (for Odin and HTML/XML)
+            -- Tags
             "@tag", "@tag.attribute"
-        }
+          }
 
           for _, group in ipairs(italic_groups) do
             local hl = vim.api.nvim_get_hl(0, { name = group, link = false })
@@ -182,15 +185,15 @@ require("lazy").setup({
         end
       },
       {
-          'nvim-treesitter/nvim-treesitter',
-          config = function()
-              vim.api.nvim_create_autocmd("FileType", {
-                  pattern = "odin",
-                  callback = function()
-                      vim.treesitter.start()
-                  end,
-              })
-            end
+        'nvim-treesitter/nvim-treesitter',
+        config = function()
+          vim.api.nvim_create_autocmd("FileType", {
+            pattern = "odin",
+            callback = function()
+              vim.treesitter.start()
+            end,
+          })
+        end
       },
       'nvim-tree/nvim-web-devicons',
     },
@@ -198,6 +201,23 @@ require("lazy").setup({
       local capabilities = require('blink.cmp').get_lsp_capabilities()
       
       vim.lsp.enable('ty')
+      
+      -- OLS configuration
+      vim.lsp.config('ols', {
+        cmd = { "ols" },
+        filetypes = { "odin" },
+        cmd_env = {
+          OLS_BUILTIN_FOLDER = "/home/mudabir/.local/share/ols/builtin",
+        },
+        init_options = {
+          enable_snippets = true,
+          enable_auto_import = true,
+          align_struct_fields = true,
+          align_struct_values = true,
+          align_trailing_comments = true,
+          enable_semantic_tokens = true,
+        },
+      })
       vim.lsp.enable('ols')
 
       vim.api.nvim_create_autocmd('LspAttach', {
@@ -256,20 +276,20 @@ require("lazy").setup({
         }
       }
 
-    dap.configurations.odin = {
-      {
-        name = "Launch Odin Binary",
-        type = "codelldb",
-        request = "launch",
-        program = function()
-          local default_path = vim.fn.getcwd() .. '/' .. vim.fn.fnamemodify(vim.fn.getcwd(), ':t')
-          return vim.fn.input('Path to executable: ', default_path, 'file')
-        end,
-        cwd = '${workspaceFolder}',
-        stopOnEntry = false,
-        args = {},
-      },
-    }
+      dap.configurations.odin = {
+        {
+          name = "Launch Odin Binary",
+          type = "codelldb",
+          request = "launch",
+          program = function()
+            local default_path = vim.fn.getcwd() .. '/' .. vim.fn.fnamemodify(vim.fn.getcwd(), ':t')
+            return vim.fn.input('Path to executable: ', default_path, 'file')
+          end,
+          cwd = '${workspaceFolder}',
+          stopOnEntry = false,
+          args = {},
+        },
+      }
 
       dap.listeners.before.attach.dapui_config = function() dapui.open() end
       dap.listeners.before.launch.dapui_config = function() dapui.open() end
@@ -287,6 +307,7 @@ require("lazy").setup({
   }
 })
 
+-- Auto folds
 local fold_group = vim.api.nvim_create_augroup("RememberFolds", { clear = true })
 vim.api.nvim_create_autocmd("BufWinLeave", {
   group = fold_group,
@@ -332,17 +353,17 @@ function MyStatusLine()
     "%#ModeMsg#",
     get_mode(),
     "%#StatusLine#",
-    " %f %m%r",             -- File path, modified flag, read-only flag
-    get_lsp_diagnostics(),  -- Diagnostic counts with colors
-    "%=",                   -- Alignment separator (pushes rest to the right)
-    " %l/%L:%c ",           -- Line / Total lines : Column
+    " %f %m%r",             -- File info
+    get_lsp_diagnostics(),  -- Diagnostics
+    "%=",                   -- Align right
+    " %l/%L:%c ",           -- Line/Col
   })
 end
 
 vim.opt.statusline = "%!v:lua.MyStatusLine()"
 vim.opt.laststatus = 3 
 
--- autocomplete colours
+-- Autocomplete colors
 vim.api.nvim_set_hl(0, "BlinkCmpMenu", { link = "NormalFloat" })
 vim.api.nvim_set_hl(0, "BlinkCmpMenuBorder", { link = "FloatBorder" })
 vim.api.nvim_set_hl(0, "BlinkCmpDoc", { link = "NormalFloat" })
