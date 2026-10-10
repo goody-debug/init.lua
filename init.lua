@@ -8,7 +8,7 @@ local opt = vim.opt
 vim.cmd("filetype plugin indent on")
 vim.cmd("syntax on")
 
-opt.number = false
+opt.number = true
 opt.cursorline = false
 opt.expandtab = true
 opt.tabstop = 4
@@ -34,6 +34,29 @@ opt.hidden = true
 opt.undofile = true
 opt.undodir = vim.fn.expand("~/.config/nvim/undodir")
 opt.guicursor = "n-v-c:block,i-ci-ve:ver25,r-cr:hor20,o:hor50"
+
+-- Filetype-specific indentation
+local indent_group = vim.api.nvim_create_augroup("CustomIndentation", { clear = true })
+local indent_settings = {
+  lua = 2,
+  python = 4,
+  odin = 4,
+  javascript = 2,
+  html = 2,
+  json = 2,
+  c = 4,
+}
+for ft, spaces in pairs(indent_settings) do
+  vim.api.nvim_create_autocmd("FileType", {
+    group = indent_group,
+    pattern = ft,
+    callback = function()
+      vim.opt_local.shiftwidth = spaces
+      vim.opt_local.tabstop = spaces
+      vim.opt_local.softtabstop = spaces
+    end,
+  })
+end
 
 -- Folds
 opt.foldmethod = "expr"
@@ -152,6 +175,43 @@ require("lazy").setup({
       vim.cmd.colorscheme("nord")
     end
   },
+  {
+    "lukas-reineke/indent-blankline.nvim",
+    main = "ibl",
+    opts = {
+      indent = { char = "│" },
+      scope = { enabled = true, show_start = false, show_end = false },
+    }
+  },
+  {
+    'nvim-telescope/telescope.nvim',
+    dependencies = { 'nvim-lua/plenary.nvim' },
+    config = function()
+      local builtin = require('telescope.builtin')
+      vim.keymap.set('n', '<leader>ff', builtin.find_files, {})
+      vim.keymap.set('n', '<leader>fg', builtin.live_grep, {})
+      vim.keymap.set('n', '<leader>fb', builtin.buffers, {})
+      vim.keymap.set('n', '<leader>fh', builtin.help_tags, {})
+    end
+  },
+  {
+   "karb94/neoscroll.nvim",
+    config = function()
+      local neoscroll = require("neoscroll")
+      
+      neoscroll.setup({
+        hide_cursor = true,          
+        stop_eof = true,             
+        respect_scrolloff = false,   
+        cursor_scrolls_alone = true, 
+        easing_function = "sine",   
+    })
+
+      local keymap = vim.keymap.set
+      keymap({'n', 'v', 'x'}, '<ScrollWheelUp>', function() neoscroll.scroll(-6, {move_cursor=true, duration=100}) end)
+      keymap({'n', 'v', 'x'}, '<ScrollWheelDown>', function() neoscroll.scroll(6, {move_cursor=true, duration=100} ) end)
+    end
+  },
   'tpope/vim-commentary',
   'tpope/vim-surround',
   { 'windwp/nvim-autopairs', config = true },
@@ -240,10 +300,15 @@ require("lazy").setup({
     'saghen/blink.cmp',
     dependencies = 'rafamadriz/friendly-snippets',
     version = '*',
-    build = 'cargo build --release',
     opts = {
       keymap = {
-        preset = 'super-tab',
+        ['<CR>'] = { 'accept', 'fallback' },
+        
+        ['<Tab>'] = { 'snippet_forward', 'select_next', 'fallback' },
+        ['<S-Tab>'] = { 'snippet_backward', 'select_prev', 'fallback' },
+
+        ['<Up>'] = { 'select_prev', 'fallback' },
+        ['<Down>'] = { 'select_next', 'fallback' },
       },
       completion = {
         menu = {
