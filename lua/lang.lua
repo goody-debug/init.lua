@@ -1,6 +1,13 @@
 local opt = vim.opt
 local keymap = vim.keymap.set
 
+local capabilities = vim.lsp.protocol.make_client_capabilities()
+capabilities.textDocument.completion.completionItem.snippetSupport = true
+
+vim.lsp.config("*", {
+  capabilities = capabilities,
+})
+
 -- Filetype-specific indentation
 local indent_group = vim.api.nvim_create_augroup("CustomIndentation", { clear = true })
 local indent_settings = {
@@ -80,7 +87,15 @@ vim.lsp.config("gopls", {
   settings = {
     gopls = {
       completeUnimported = true,
-      usePlaceholders = true,
+      staticcheck = true,
+      codelenses = {
+        gc_details = true,         
+        generate = true,         
+        regenerate_cgo = true,
+        tidy = true, 
+        upgrade_dependency = true,
+        vendor = true,
+      },
       analyses = {
         unusedparams = true,
       },
@@ -111,7 +126,7 @@ vim.lsp.config("lua_ls", {
 })
 
 -- Enable all servers
-vim.lsp.enable({ "ty" })
+vim.lsp.enable({ "ty", "gopls" })
 
 -- ============================================================================
 -- LSP Keymaps & Auto-Format on Save
@@ -132,6 +147,7 @@ vim.api.nvim_create_autocmd("LspAttach", {
     keymap("n", "<leader>ca", vim.lsp.buf.code_action, bufopts)
     keymap("n", "<leader>f", function() vim.lsp.buf.format({ async = true }) end, bufopts)
     keymap("n", "<C-w>d", function() vim.diagnostic.open_float({ border = "rounded" }) end, bufopts)
+    keymap("n", "<leader>cl", vim.lsp.codelens.run, bufopts)
 
     -- Auto-format on save if the attached LSP supports it
     if client and client:supports_method("textDocument/formatting") then
