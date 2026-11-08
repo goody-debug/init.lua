@@ -82,6 +82,7 @@ vim.pack.add({
   "https://github.com/gbprod/nord.nvim",
   "https://github.com/echasnovski/mini.nvim",
   "https://github.com/nvim-treesitter/nvim-treesitter",
+  "https://github.com/rafamadriz/friendly-snippets",
 })
 
 -- ============================================================================
@@ -224,11 +225,92 @@ require("mini.completion").setup({
   },
 })
 
--- Clear any subtle background tint on native snippet tabstops so the UI stays 100% clean
+-- ============================================================================
+-- Clean Native Snippets + friendly-snippets in Popup Menu
+-- ============================================================================
+-- 1. Save Neovim's clean built-in snippet expander before mini.snippets touches it
+local native_expand = vim.snippet.expand
+
+local snippets = require("mini.snippets")
+snippets.setup({
+  snippets = {
+    -- Load friendly-snippets from runtimepath based on filetype
+    snippets.gen_loader.from_lang(),
+  },
+  mappings = {
+    expand = "",
+    jump_next = "",
+    jump_prev = "",
+    stop = "",
+  },
+  expand = {
+    -- When selecting a friendly-snippet from the popup menu, expand it natively (no • or ∎)
+    insert = function(snippet)
+      native_expand(snippet.body)
+    end,
+  },
+})
+
+-- 2. Start virtual LSP so friendly-snippets appear automatically in mini.completion
+MiniSnippets.start_lsp_server()
+
+-- 3. MiniSnippets.start_lsp_server() overwrites vim.snippet.expand inside vim.schedule().
+-- Scheduling our restore right after guarantees native_expand wins for gopls/lua_ls too.
+vim.schedule(function()
+  vim.snippet.expand = native_expand
+end)
+
+-- 4. Keep native tabstops 100% invisible (no background boxes or underlines)
 vim.api.nvim_set_hl(0, "SnippetTabstop", {})
 vim.api.nvim_set_hl(0, "SnippetTabstopActive", {})
 
--- Automatically exit the snippet session whenever leaving Insert or Select mode
+-- ============================================================================
+-- Super-Tab, Enter, and Clean Snippet Exit
+-- ============================================================================
+local function feedkeys(keys)
+  vim.api.nvim_feedkeys(vim.keycode(keys), "n", false)
+end
+
+-- <Tab>: 1. Cycle popup menu -> 2. Jump snippet placeholder -> 3. Literal Tab
+keymap({ "i", "s" }, "<Tab>", function()
+  if vim.fn.pumvisible() == 1 then
+    feedkeys("<C-n>")
+  elseif vim.snippet.active({ direction = 1 }) then
+    vim.snippet.jump(1)
+  else
+    feedkeys("<Tab>")
+  end
+end, { silent = true })
+
+-- <S-Tab>: 1. Cycle popup menu back -> 2. Jump snippet placeholder back -> 3. S-Tab
+keymap({ "i", "s" }, "<S-Tab>", function()
+  if vim.fn.pumvisible() == 1 then
+    feedkeys("<C-p>")
+  elseif vim.snippet.active({ direction = -1 }) then
+    vim.snippet.jump(-1)
+  else
+    feedkeys("<S-Tab>")
+  end
+end, { silent = true })
+
+-- <CR>: Confirm popup selection (expands both LSP and friendly-snippets)
+keymap("i", "<CR>", function()
+  if vim.fn.pumvisible() == 1 then
+    feedkeys("<C-y>")
+  else
+    feedkeys("<CR>")
+  end
+end, { silent = true })
+
+-- jj: Exit Insert/Select mode and cancel active snippet session
+keymap({ "i", "s" }, "jj", function()
+  if vim.snippet.active() then
+    vim.snippet.stop()
+  end
+  feedkeys("<Esc>")
+end, { silent = true })
+
+-- Stop snippet session automatically when leaving Insert/Select mode via Esc/Ctrl-c
 vim.api.nvim_create_autocmd("ModeChanged", {
   pattern = { "i:n", "s:n" },
   callback = function()
@@ -237,52 +319,6 @@ vim.api.nvim_create_autocmd("ModeChanged", {
     end
   end,
 })
-
--- Map jj in both Insert ("i") and Select ("s") mode so it works even when a placeholder is highlighted
-keymap({ "i", "s" }, "jj", function()
-  if vim.snippet.active() then
-    vim.snippet.stop()
-  end
-  return "<Esc>"
-end, { expr = true, silent = true })
-
--- Normal mode Esc: stop any active snippet and clear search highlight
-keymap("n", "<Esc>", function()
-  if vim.snippet.active() then
-    vim.snippet.stop()
-  end
-  vim.cmd("nohlsearch")
-  return "<Esc>"
-end, { expr = true, silent = true })
-
--- Super-Tab: cycle completion menu if open, otherwise jump native snippet placeholders
-keymap({ "i", "s" }, "<Tab>", function()
-  if vim.fn.pumvisible() == 1 then
-    return "<C-n>"
-  elseif vim.snippet.active({ direction = 1 }) then
-    vim.schedule(function()
-      vim.snippet.jump(1)
-    end)
-    return ""
-  else
-    return "<Tab>"
-  end
-end, { expr = true, silent = true })
-
-keymap({ "i", "s" }, "<S-Tab>", function()
-  if vim.fn.pumvisible() == 1 then
-    return "<C-p>"
-  elseif vim.snippet.active({ direction = -1 }) then
-    vim.schedule(function()
-      vim.snippet.jump(-1)
-    end)
-    return ""
-  else
-    return "<S-Tab>"
-  end
-end, { expr = true, silent = true })
-
-keymap("i", "<CR>", 'pumvisible() ? "\\<C-y>" : "\\<CR>"', { expr = true })
 -- ============================================================================
 -- Floating Notifications (mini.notify)
 -- ============================================================================
