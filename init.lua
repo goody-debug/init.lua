@@ -46,8 +46,23 @@ opt.pumwidth = 25
 
 -- Core Keymaps
 local keymap = vim.keymap.set
-keymap("n", "<Esc>", ":nohlsearch<CR><Esc>", { silent = true })
-keymap("i", "jj", "<Esc>", { silent = true })
+
+-- Exit Insert mode and cancel active snippet session
+keymap("i", "jj", function()
+  if vim.snippet.active() then
+    vim.snippet.stop()
+  end
+  return "<Esc>"
+end, { expr = true, silent = true })
+
+-- Normal mode Esc: cancel any lingering snippet session and clear search highlights
+keymap("n", "<Esc>", function()
+  if vim.snippet.active() then
+    vim.snippet.stop()
+  end
+  vim.cmd("nohlsearch")
+  return "<Esc>"
+end, { expr = true, silent = true })
 keymap("n", "<leader>x", function() MiniBufremove.delete(0, true) end, { silent = true })
 keymap({ "n", "v" }, "<Leader>y", '"+y')
 keymap({ "n", "v" }, "<Leader>p", '"+p')
@@ -188,6 +203,9 @@ keymap("n", "<leader>fg", "<cmd>Pick grep_live<CR>", { silent = true })
 keymap("n", "<leader>fb", "<cmd>Pick buffers<CR>", { silent = true })
 keymap("n", "<leader>fh", "<cmd>Pick help<CR>", { silent = true })
 
+-- ============================================================================
+-- AutoComplete
+-- ============================================================================
 require("mini.completion").setup({
   window = {
     info = { height = 12, width = 45, border = "rounded" },
@@ -206,10 +224,65 @@ require("mini.completion").setup({
   },
 })
 
-keymap("i", "<Tab>",   'pumvisible() ? "\\<C-n>" : "\\<Tab>"',   { expr = true })
-keymap("i", "<S-Tab>", 'pumvisible() ? "\\<C-p>" : "\\<S-Tab>"', { expr = true })
-keymap("i", "<CR>",    'pumvisible() ? "\\<C-y>" : "\\<CR>"',    { expr = true })
+-- Clear any subtle background tint on native snippet tabstops so the UI stays 100% clean
+vim.api.nvim_set_hl(0, "SnippetTabstop", {})
+vim.api.nvim_set_hl(0, "SnippetTabstopActive", {})
 
+-- Automatically exit the snippet session whenever leaving Insert or Select mode
+vim.api.nvim_create_autocmd("ModeChanged", {
+  pattern = { "i:n", "s:n" },
+  callback = function()
+    if vim.snippet.active() then
+      vim.snippet.stop()
+    end
+  end,
+})
+
+-- Map jj in both Insert ("i") and Select ("s") mode so it works even when a placeholder is highlighted
+keymap({ "i", "s" }, "jj", function()
+  if vim.snippet.active() then
+    vim.snippet.stop()
+  end
+  return "<Esc>"
+end, { expr = true, silent = true })
+
+-- Normal mode Esc: stop any active snippet and clear search highlight
+keymap("n", "<Esc>", function()
+  if vim.snippet.active() then
+    vim.snippet.stop()
+  end
+  vim.cmd("nohlsearch")
+  return "<Esc>"
+end, { expr = true, silent = true })
+
+-- Super-Tab: cycle completion menu if open, otherwise jump native snippet placeholders
+keymap({ "i", "s" }, "<Tab>", function()
+  if vim.fn.pumvisible() == 1 then
+    return "<C-n>"
+  elseif vim.snippet.active({ direction = 1 }) then
+    vim.schedule(function()
+      vim.snippet.jump(1)
+    end)
+    return ""
+  else
+    return "<Tab>"
+  end
+end, { expr = true, silent = true })
+
+keymap({ "i", "s" }, "<S-Tab>", function()
+  if vim.fn.pumvisible() == 1 then
+    return "<C-p>"
+  elseif vim.snippet.active({ direction = -1 }) then
+    vim.schedule(function()
+      vim.snippet.jump(-1)
+    end)
+    return ""
+  else
+    return "<S-Tab>"
+  end
+end, { expr = true, silent = true })
+
+keymap("i", "<CR>", 'pumvisible() ? "\\<C-y>" : "\\<CR>"', { expr = true })
 -- ============================================================================
 -- Floating Notifications (mini.notify)
 -- ============================================================================
