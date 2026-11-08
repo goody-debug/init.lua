@@ -1,14 +1,14 @@
 -- Leader keys
 vim.g.mapleader = " "
 vim.g.maplocalleader = " "
-vim.keymap.set({ 'n', 'v' }, '<Space>', '<Nop>', { silent = true })
+vim.keymap.set({ "n", "v" }, "<Space>", "<Nop>", { silent = true })
 
 -- Base options
 local opt = vim.opt
 vim.cmd("filetype plugin indent on")
 vim.cmd("syntax on")
 
-opt.number = true
+opt.number = false
 opt.cursorline = false
 opt.expandtab = true
 opt.tabstop = 4
@@ -32,360 +32,181 @@ opt.signcolumn = "yes"
 opt.updatetime = 300
 opt.hidden = true
 opt.undofile = true
+opt.mousescroll = "ver:3,hor:6"
 opt.undodir = vim.fn.expand("~/.config/nvim/undodir")
 opt.guicursor = "n-v-c:block,i-ci-ve:ver25,r-cr:hor20,o:hor50"
+opt.completeopt = "menuone,noinsert,noselect"
+opt.winborder = "rounded"
+opt.fillchars = { fold = " ", eob = " " }
+opt.pumheight = 8
+opt.pumwidth = 25
 
--- Filetype-specific indentation
-local indent_group = vim.api.nvim_create_augroup("CustomIndentation", { clear = true })
-local indent_settings = {
-  lua = 2,
-  python = 4,
-  odin = 4,
-  javascript = 2,
-  html = 2,
-  json = 2,
-  c = 4,
-}
-for ft, spaces in pairs(indent_settings) do
-  vim.api.nvim_create_autocmd("FileType", {
-    group = indent_group,
-    pattern = ft,
-    callback = function()
-      vim.opt_local.shiftwidth = spaces
-      vim.opt_local.tabstop = spaces
-      vim.opt_local.softtabstop = spaces
-    end,
-  })
-end
-
--- Folds
-opt.foldmethod = "expr"
-opt.foldexpr = "v:lua.vim.treesitter.foldexpr()"
-vim.opt.fillchars = { fold = ' ' }
-opt.foldtext = ""
-opt.foldlevel = 99
-opt.foldlevelstart = 99
-
--- Keymaps
+-- Core Keymaps
 local keymap = vim.keymap.set
 keymap("n", "<Esc>", ":nohlsearch<CR><Esc>", { silent = true })
 keymap("i", "jj", "<Esc>", { silent = true })
-keymap("n", "<leader>x", ":bdelete!<CR>", { silent = true })
-keymap({"n", "v"}, "<Leader>y", '"+y')
-keymap({"n", "v"}, "<Leader>p", '"+p')
+keymap("n", "<leader>x", function() MiniBufremove.delete(0, true) end, { silent = true })
+keymap({ "n", "v" }, "<Leader>y", '"+y')
+keymap({ "n", "v" }, "<Leader>p", '"+p')
 
--- Diagnostics
-vim.diagnostic.config({
-  float = { border = "rounded", max_width = 80 },
-  signs = false,
-  underline = true,
+-- ============================================================================
+-- Built-in Package Manager (vim.pack)
+-- ============================================================================
+vim.pack.add({
+  "https://github.com/gbprod/nord.nvim",
+  "https://github.com/echasnovski/mini.nvim",
+  "https://github.com/nvim-treesitter/nvim-treesitter",
 })
 
--- Lazy bootstrap
-local lazypath = vim.fn.stdpath("data") .. "/lazy/lazy.nvim"
-if not vim.loop.fs_stat(lazypath) then
-  vim.fn.system({
-    "git", "clone", "--filter=blob:none",
-    "https://github.com/folke/lazy.nvim.git", "--branch=stable", lazypath,
-  })
-end
-vim.opt.rtp:prepend(lazypath)
-
--- Plugins
-require("lazy").setup({
-  {
-    'gbprod/nord.nvim',
-    lazy = false,
-    priority = 1000,
-    config = function()
-      require('nord').setup({
-        transparent = false,
-        terminal_colors = true,
-        styles = {
-          comments = { italic = true },
-          keywords = { italic = true },
-          strings = { italic = true },
-        },
-      })
-      
-      vim.api.nvim_create_autocmd("ColorScheme", {
-        pattern = "*",
-        callback = function()
-          local saga_normals = { 
-            "SagaNormal", "HoverNormal", "RenameNormal", 
-            "DiagnosticNormal", "DiagnosticShowNormal", 
-            "ActionPreviewNormal", "CodeActionNormal",
-            "NormalFloat" 
-          }
-          for _, group in ipairs(saga_normals) do
-            vim.api.nvim_set_hl(0, group, { link = "Normal" })
-          end
-          
-          local saga_borders = { 
-            "SagaBorder", "HoverBorder", "RenameBorder", 
-            "DiagnosticBorder", "DiagnosticShowBorder", 
-            "ActionPreviewBorder", "CodeActionBorder",
-            "FloatBorder" 
-          }
-          for _, group in ipairs(saga_borders) do
-            local hl = vim.api.nvim_get_hl(0, { name = "FloatBorder", link = false })
-            vim.api.nvim_set_hl(0, group, hl)
-          end
-
-          local italic_groups = {
-            -- Comments/Strings
-            "Comment", "String",
-            "@comment", "@string",
-
-            -- Keywords
-            "Keyword", "Statement", "Conditional", "Repeat", "Exception", "Include",
-            "@keyword", "@conditional", "@repeat", "@exception", "@include",
-            "@keyword.conditional", "@keyword.repeat", "@keyword.exception", "@keyword.import",
-
-            -- Constants
-            "Boolean", "Constant",
-            "@boolean", "@constant.builtin",
-
-            -- Types/Classes
-            "Type", "StorageClass", "Structure",
-            "@type", "@type.builtin", "@type.qualifier", "@keyword.modifier", "@keyword.type",
-
-            -- Variables
-            "@variable.builtin",
-
-            -- Macros/Functions
-            "Macro",
-            "@function.builtin", "@function.macro",
-
-            -- Markup
-            "markdownItalic", "@markup.italic",
-
-            -- Tags
-            "@tag", "@tag.attribute"
-          }
-
-          for _, group in ipairs(italic_groups) do
-            local hl = vim.api.nvim_get_hl(0, { name = group, link = false })
-            hl.italic = true
-            vim.api.nvim_set_hl(0, group, hl)
-          end
-        end
-      })
-      
-      vim.cmd.colorscheme("nord")
-    end
+-- ============================================================================
+-- Colorscheme (Nord)
+-- ============================================================================
+require("nord").setup({
+  transparent = false,
+  terminal_colors = true,
+  styles = {
+    comments = { italic = true },
+    keywords = { italic = true },
+    strings = { italic = true },
   },
-  {
-    "lukas-reineke/indent-blankline.nvim",
-    main = "ibl",
-    opts = {
-      indent = { char = "│" },
-      scope = { enabled = true, show_start = false, show_end = false },
+})
+
+vim.api.nvim_create_autocmd("ColorScheme", {
+  pattern = "*",
+  callback = function()
+    vim.api.nvim_set_hl(0, "NormalFloat", { link = "Normal" })
+
+    local italic_groups = {
+      "Comment", "String", "@comment", "@string",
+      "Keyword", "Statement", "Conditional", "Repeat", "Exception", "Include",
+      "@keyword", "@conditional", "@repeat", "@exception", "@include",
+      "@keyword.conditional", "@keyword.repeat", "@keyword.exception", "@keyword.import",
+      "Boolean", "Constant", "@boolean", "@constant.builtin",
+      "Type", "StorageClass", "Structure",
+      "@type", "@type.builtin", "@type.qualifier", "@keyword.modifier", "@keyword.type",
+      "@variable.builtin",
+      "Macro", "@function.builtin", "@function.macro",
+      "markdownItalic", "@markup.italic",
+      "@tag", "@tag.attribute",
     }
-  },
-  {
-    'nvim-telescope/telescope.nvim',
-    dependencies = { 'nvim-lua/plenary.nvim' },
-    config = function()
-      local builtin = require('telescope.builtin')
-      vim.keymap.set('n', '<leader>ff', builtin.find_files, {})
-      vim.keymap.set('n', '<leader>fg', builtin.live_grep, {})
-      vim.keymap.set('n', '<leader>fb', builtin.buffers, {})
-      vim.keymap.set('n', '<leader>fh', builtin.help_tags, {})
-    end
-  },
-  {
-   "karb94/neoscroll.nvim",
-    config = function()
-      local neoscroll = require("neoscroll")
-      
-      neoscroll.setup({
-        hide_cursor = true,          
-        stop_eof = true,             
-        respect_scrolloff = false,   
-        cursor_scrolls_alone = true, 
-        easing_function = "sine",   
-    })
 
-      local keymap = vim.keymap.set
-      keymap({'n', 'v', 'x'}, '<ScrollWheelUp>', function() neoscroll.scroll(-6, {move_cursor=true, duration=100}) end)
-      keymap({'n', 'v', 'x'}, '<ScrollWheelDown>', function() neoscroll.scroll(6, {move_cursor=true, duration=100} ) end)
+    for _, group in ipairs(italic_groups) do
+      local hl = vim.api.nvim_get_hl(0, { name = group, link = false })
+      if next(hl) ~= nil then
+        hl.italic = true
+        vim.api.nvim_set_hl(0, group, hl)
+      end
     end
-  },
-  'tpope/vim-commentary',
-  'tpope/vim-surround',
-  { 'windwp/nvim-autopairs', config = true },
-  {
-    'nvim-tree/nvim-tree.lua',
-    dependencies = { 'nvim-tree/nvim-web-devicons' },
-    config = function()
-      require("nvim-tree").setup({
-        view = {
-          side = "right",
-          width = 35,
-        }
-      })
-      vim.keymap.set("n", "<leader>e", ":NvimTreeToggle<CR>", { silent = true })
-    end
-  },
-  {
-    'neovim/nvim-lspconfig',
-    dependencies = {
-      { 
-        'nvimdev/lspsaga.nvim',
-        config = function()
-          require('lspsaga').setup({
-            ui = { 
-              border = 'rounded',
-              scrollbar = false,
-            },
-            symbol_in_winbar = { enable = false },
-            lightbulb = { enable = false }
-          })
-        end
-      },
-      {
-        'nvim-treesitter/nvim-treesitter',
-        config = function()
-          vim.api.nvim_create_autocmd("FileType", {
-            pattern = "odin",
-            callback = function()
-              vim.treesitter.start()
-            end,
-          })
-        end
-      },
-      'nvim-tree/nvim-web-devicons',
-    },
-    config = function()
-      local capabilities = require('blink.cmp').get_lsp_capabilities()
-      
-      vim.lsp.enable('ty')
-      
-      -- OLS configuration
-      vim.lsp.config('ols', {
-        cmd = { "ols" },
-        filetypes = { "odin" },
-        cmd_env = {
-          OLS_BUILTIN_FOLDER = "/home/mudabir/.local/share/ols/builtin",
-        },
-        init_options = {
-          enable_snippets = true,
-          enable_auto_import = true,
-          align_struct_fields = true,
-          align_struct_values = true,
-          align_trailing_comments = true,
-          enable_semantic_tokens = true,
-        },
-      })
-      vim.lsp.enable('ols')
+  end,
+})
 
-      vim.api.nvim_create_autocmd('LspAttach', {
-        callback = function(event)
-          local bufopts = { noremap=true, silent=true, buffer=event.buf }
-          vim.keymap.set('n', 'gd', '<cmd>Lspsaga goto_definition<CR>', bufopts)
-          vim.keymap.set('n', 'gp', '<cmd>Lspsaga peek_definition<CR>', bufopts)
-          vim.keymap.set('n', 'gi', vim.lsp.buf.implementation, bufopts)
-          vim.keymap.set('n', 'gr', '<cmd>Lspsaga finder<CR>', bufopts)
-          vim.keymap.set('n', 'K', '<cmd>Lspsaga hover_doc<CR>', bufopts)
-          vim.keymap.set('n', '<leader>rn', '<cmd>Lspsaga rename<CR>', bufopts)
-          vim.keymap.set('n', '<leader>ca', '<cmd>Lspsaga code_action<CR>', bufopts)
-          vim.keymap.set('n', '<leader>f', function() vim.lsp.buf.format { async = true } end, bufopts)
-          vim.keymap.set('n', '<C-w>d', '<cmd>Lspsaga show_line_diagnostics<CR>', bufopts)
-        end,
-      })
-    end
-  },
-  {
-    'saghen/blink.cmp',
-    dependencies = 'rafamadriz/friendly-snippets',
-    version = '*',
-    opts = {
-      keymap = {
-        ['<CR>'] = { 'accept', 'fallback' },
-        
-        ['<Tab>'] = { 'snippet_forward', 'select_next', 'fallback' },
-        ['<S-Tab>'] = { 'snippet_backward', 'select_prev', 'fallback' },
+vim.cmd.colorscheme("nord")
 
-        ['<Up>'] = { 'select_prev', 'fallback' },
-        ['<Down>'] = { 'select_next', 'fallback' },
-      },
-      completion = {
-        menu = {
-          border = 'rounded',
-          draw = { columns = { { "label" }, { "kind" } } }
-        },
-        documentation = { auto_show = false, window = { border = 'rounded' } }
-      },
-      sources = { default = { 'lsp', 'path', 'snippets', 'buffer' } },
-    }
+-- ============================================================================
+-- mini.nvim Modules
+-- ============================================================================
+require("mini.icons").setup()
+MiniIcons.mock_nvim_web_devicons()
+
+require("mini.comment").setup()
+require("mini.pairs").setup()
+require("mini.surround").setup({
+  mappings = {
+    add = "ys",
+    delete = "ds",
+    replace = "cs",
+    find = "",
+    find_left = "",
+    highlight = "",
+    update_n_lines = "",
   },
-  {
-    'mfussenegger/nvim-dap',
-    dependencies = {
-      'rcarriga/nvim-dap-ui',
-      'nvim-neotest/nvim-nio',
-    },
+})
+
+require("mini.bufremove").setup()
+
+-- ============================================================================
+-- Centered File Explorer (mini.files)
+-- ============================================================================
+require("mini.files").setup({
+  windows = { preview = true, width_focus = 35, width_preview = 45 },
+})
+
+-- Automatically center mini.files floating windows on screen
+vim.api.nvim_create_autocmd("User", {
+  pattern = "MiniFilesWindowUpdate",
+  callback = function(args)
+    local config = vim.api.nvim_win_get_config(args.data.win_id)
+    -- Center vertically
+    config.row = math.floor(0.5 * (vim.o.lines - config.height))
+    -- Offset horizontally from the left edge toward the center
+    local total_width = 85 -- approximate width of focus + preview columns
+    local base_col = math.max(0, math.floor(0.5 * (vim.o.columns - total_width)))
+    config.col = config.col + base_col
+    vim.api.nvim_win_set_config(args.data.win_id, config)
+  end,
+})
+
+keymap("n", "<leader>e", function()
+  if not MiniFiles.close() then
+    MiniFiles.open(vim.api.nvim_buf_get_name(0), false)
+  end
+end, { silent = true })
+
+-- ============================================================================
+-- Centered Fuzzy Picker (mini.pick: files, grep_live, buffers, help)
+-- ============================================================================
+require("mini.pick").setup({
+  window = {
     config = function()
-      local dap = require('dap')
-      local dapui = require('dapui')
-      
-      dapui.setup()
-
-      dap.adapters.codelldb = {
-        type = 'server',
-        port = "${port}",
-        executable = {
-          command = 'codelldb',
-          args = { "--port", "${port}" },
-        }
+      local height = math.floor(0.618 * vim.o.lines)
+      local width = math.floor(0.618 * vim.o.columns)
+      return {
+        anchor = "NW",
+        height = height,
+        width = width,
+        row = math.floor(0.5 * (vim.o.lines - height)),
+        col = math.floor(0.5 * (vim.o.columns - width)),
+        border = "rounded",
       }
-
-      dap.configurations.odin = {
-        {
-          name = "Launch Odin Binary",
-          type = "codelldb",
-          request = "launch",
-          program = function()
-            local default_path = vim.fn.getcwd() .. '/' .. vim.fn.fnamemodify(vim.fn.getcwd(), ':t')
-            return vim.fn.input('Path to executable: ', default_path, 'file')
-          end,
-          cwd = '${workspaceFolder}',
-          stopOnEntry = false,
-          args = {},
-        },
-      }
-
-      dap.listeners.before.attach.dapui_config = function() dapui.open() end
-      dap.listeners.before.launch.dapui_config = function() dapui.open() end
-      dap.listeners.before.event_terminated.dapui_config = function() dapui.close() end
-      dap.listeners.before.event_exited.dapui_config = function() dapui.close() end
-
-      local keymap = vim.keymap.set
-      keymap("n", "<leader>b", function() require('dap').toggle_breakpoint() end)
-      keymap("n", "<F5>", function() require('dap').continue() end)
-      keymap("n", "<F10>", function() require('dap').step_over() end)
-      keymap("n", "<F11>", function() require('dap').step_into() end)
-      keymap("n", "<F12>", function() require('dap').step_out() end)
-      keymap("n", "<leader>dq", function() require('dap').terminate(); require('dapui').close() end)
-    end
-  }
+    end,
+  },
 })
 
--- Auto folds
-local fold_group = vim.api.nvim_create_augroup("RememberFolds", { clear = true })
-vim.api.nvim_create_autocmd("BufWinLeave", {
-  group = fold_group,
-  pattern = "*.*",
-  command = "mkview",
-})
-vim.api.nvim_create_autocmd("BufWinEnter", {
-  group = fold_group,
-  pattern = "*.*",
-  command = "silent! loadview",
+keymap("n", "<leader>ff", "<cmd>Pick files<CR>", { silent = true })
+keymap("n", "<leader>fg", "<cmd>Pick grep_live<CR>", { silent = true })
+keymap("n", "<leader>fb", "<cmd>Pick buffers<CR>", { silent = true })
+keymap("n", "<leader>fh", "<cmd>Pick help<CR>", { silent = true })
+
+require("mini.completion").setup({
+  window = {
+    info = { height = 12, width = 45, border = "rounded" },
+    signature = { height = 6, width = 45, border = "rounded" },
+  },
+  lsp_completion = {
+    process_items = function(items, base)
+      for _, item in ipairs(items) do
+        item.labelDetails = nil
+        if item.label and #item.label > 30 then
+          item.label = item.label:sub(1, 29) .. "…"
+        end
+      end
+      return MiniCompletion.default_process_items(items, base)
+    end,
+  },
 })
 
+keymap("i", "<Tab>",   'pumvisible() ? "\\<C-n>" : "\\<Tab>"',   { expr = true })
+keymap("i", "<S-Tab>", 'pumvisible() ? "\\<C-p>" : "\\<S-Tab>"', { expr = true })
+keymap("i", "<CR>",    'pumvisible() ? "\\<C-y>" : "\\<CR>"',    { expr = true })
+
+-- ============================================================================
+-- Load Language & LSP Configuration
+-- ============================================================================
+require("lang")
+
+-- ============================================================================
 -- Statusline
+-- ============================================================================
 local modes = {
   ["n"] = "NORMAL", ["i"] = "INSERT", ["v"] = "VISUAL", ["V"] = "V-LINE",
   ["\22"] = "V-BLOCK", ["c"] = "COMMAND", ["R"] = "REPLACE",
@@ -398,10 +219,10 @@ end
 
 local function get_lsp_diagnostics()
   local count = {
-    errors = #vim.diagnostic.get(0, { severity = vim.diagnostic.severity.ERROR }),
+    errors   = #vim.diagnostic.get(0, { severity = vim.diagnostic.severity.ERROR }),
     warnings = #vim.diagnostic.get(0, { severity = vim.diagnostic.severity.WARN }),
-    info = #vim.diagnostic.get(0, { severity = vim.diagnostic.severity.INFO }),
-    hints = #vim.diagnostic.get(0, { severity = vim.diagnostic.severity.HINT }),
+    info     = #vim.diagnostic.get(0, { severity = vim.diagnostic.severity.INFO }),
+    hints    = #vim.diagnostic.get(0, { severity = vim.diagnostic.severity.HINT }),
   }
 
   local parts = {}
@@ -418,19 +239,12 @@ function MyStatusLine()
     "%#ModeMsg#",
     get_mode(),
     "%#StatusLine#",
-    " %f %m%r",             -- File info
-    get_lsp_diagnostics(),  -- Diagnostics
-    "%=",                   -- Align right
-    " %l/%L:%c ",           -- Line/Col
+    " %f %m%r",
+    get_lsp_diagnostics(),
+    "%=",
+    " %l/%L:%c ",
   })
 end
 
-vim.opt.statusline = "%!v:lua.MyStatusLine()"
-vim.opt.laststatus = 3 
-
--- Autocomplete colors
-vim.api.nvim_set_hl(0, "BlinkCmpMenu", { link = "NormalFloat" })
-vim.api.nvim_set_hl(0, "BlinkCmpMenuBorder", { link = "FloatBorder" })
-vim.api.nvim_set_hl(0, "BlinkCmpDoc", { link = "NormalFloat" })
-vim.api.nvim_set_hl(0, "BlinkCmpDocBorder", { link = "FloatBorder" })
-opt.fillchars:append({ eob = " " })
+opt.statusline = "%!v:lua.MyStatusLine()"
+opt.laststatus = 3
