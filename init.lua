@@ -38,7 +38,7 @@ opt.undofile = true
 opt.mousescroll = "ver:3,hor:6"
 opt.undodir = vim.fn.expand("~/.config/nvim/undodir")
 opt.guicursor = "n-v-c:block,i-ci-ve:ver25,r-cr:hor20,o:hor50"
-opt.completeopt = "menuone,noinsert,noselect"
+opt.completeopt = "menuone,noinsert"
 opt.winborder = "rounded"
 opt.fillchars = { fold = " ", eob = " " }
 opt.pumheight = 8
