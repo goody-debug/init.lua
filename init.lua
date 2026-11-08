@@ -8,6 +8,9 @@ local opt = vim.opt
 vim.cmd("filetype plugin indent on")
 vim.cmd("syntax on")
 
+opt.swapfile = false
+opt.backup = false
+opt.writebackup = false
 opt.number = false
 opt.cursorline = false
 opt.expandtab = true
@@ -52,6 +55,14 @@ keymap({ "n", "v" }, "<Leader>p", '"+p')
 -- ============================================================================
 -- Built-in Package Manager (vim.pack)
 -- ============================================================================
+vim.api.nvim_create_autocmd("PackChanged", {
+  callback = function(ev)
+    local kind = ev.data.kind -- "install", "update", or "delete"
+    local name = ev.data.spec.name
+    vim.notify(string.format("Plugin %s: %s", kind, name), vim.log.levels.INFO)
+  end,
+})
+
 vim.pack.add({
   "https://github.com/gbprod/nord.nvim",
   "https://github.com/echasnovski/mini.nvim",
@@ -199,6 +210,31 @@ keymap("i", "<Tab>",   'pumvisible() ? "\\<C-n>" : "\\<Tab>"',   { expr = true }
 keymap("i", "<S-Tab>", 'pumvisible() ? "\\<C-p>" : "\\<S-Tab>"', { expr = true })
 keymap("i", "<CR>",    'pumvisible() ? "\\<C-y>" : "\\<CR>"',    { expr = true })
 
+-- ============================================================================
+-- Floating Notifications (mini.notify)
+-- ============================================================================
+local notify = require("mini.notify")
+notify.setup({
+  content = {
+    format = function(notif)
+      return notif.msg
+    end,
+  },
+  lsp_progress = {
+    enable = true,
+    duration_last = 1000,
+  },
+  window = {
+    config = {
+      border = "rounded",
+    },
+    max_width_share = 0.382,
+    winblend = 0,
+  },
+})
+
+vim.notify = notify.make_notify()
+keymap("n", "<leader>h", function() MiniNotify.show_history() end, { silent = true })
 -- ============================================================================
 -- Load Language & LSP Configuration
 -- ============================================================================
