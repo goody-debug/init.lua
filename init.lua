@@ -44,7 +44,7 @@ opt.pumheight = 8
 opt.pumwidth = 25
 opt.laststatus = 3
 
--- Undo Configuration & History Limits
+-- Undo Configuration & History Limits (500 Max)
 opt.undofile = true
 opt.undolevels = 500
 opt.undodir = vim.fn.expand("~/.config/nvim/undodir")
@@ -120,29 +120,11 @@ vim.api.nvim_create_autocmd("BufWritePre", {
     end
 
     local view = vim.fn.winsaveview()
-    vim.cmd([[%s/\s\+$//e]])
-    vim.cmd([[%s/\($\n\s*\)\+\%$//e]])
+    vim.cmd([[keeppatterns %s/\s\+$//e]])
+    vim.cmd([[keeppatterns %s/\($\n\s*\)\+\%$//e]])
     vim.fn.winrestview(view)
   end,
 })
-
--- ============================================================================
--- Core Keymaps
--- ============================================================================
-local keymap = vim.keymap.set
-
-keymap("n", "<Esc>", function()
-  if vim.snippet.active() then
-    vim.snippet.stop()
-  end
-  vim.cmd("nohlsearch")
-  return "<Esc>"
-end, { expr = true, silent = true })
-
-keymap("n", "<leader>x", function() MiniBufremove.delete(0, true) end, { silent = true, desc = "Delete Buffer" })
-keymap({ "n", "v" }, "<Leader>y", '"+y', { silent = true, desc = "Yank to Clipboard" })
-keymap({ "n", "v" }, "<Leader>p", '"+p', { silent = true, desc = "Paste from Clipboard" })
-keymap("n", "<leader>tu", "<cmd>UndoClean<CR>", { silent = true, desc = "Purge Orphaned Undos" })
 
 -- ============================================================================
 -- Built-in Package Manager (vim.pack)
@@ -159,7 +141,58 @@ vim.pack.add({
   "https://github.com/echasnovski/mini.nvim",
   "https://github.com/nvim-treesitter/nvim-treesitter",
   "https://github.com/rafamadriz/friendly-snippets",
+  "https://github.com/jake-stewart/multicursor.nvim",
 })
+
+-- ============================================================================
+-- Core Keymaps & Multi-Cursor Setup (jake-stewart/multicursor.nvim)
+-- ============================================================================
+local keymap = vim.keymap.set
+local mc = require("multicursor-nvim")
+mc.setup()
+
+-- Sublime-style Multi-Cursor mappings
+keymap({ "n", "x" }, "<C-d>", function() mc.matchAddCursor(1) end, { desc = "Select Next Match (Multi-Cursor)" })
+keymap({ "n", "x" }, "<C-x>", function() mc.matchSkipCursor(1) end, { desc = "Skip Match (Multi-Cursor)" })
+keymap({ "n", "x" }, "<Leader>ma", mc.matchAllAddCursors, { desc = "Add Cursors to All Matches" })
+keymap({ "n", "x" }, "<C-Down>", function() mc.lineAddCursor(1) end, { desc = "Add Cursor Below" })
+keymap({ "n", "x" }, "<C-Up>", function() mc.lineAddCursor(-1) end, { desc = "Add Cursor Above" })
+
+-- Dedicated Multi-Cursor Layer (only active when multiple cursors exist)
+mc.addKeymapLayer(function(layerSet)
+  layerSet({ "n", "x" }, "<Left>", mc.prevCursor)
+  layerSet({ "n", "x" }, "<Right>", mc.nextCursor)
+  layerSet({ "n", "x" }, "<Leader>x", mc.deleteCursor)
+  layerSet("n", "<Esc>", function()
+    if not mc.cursorsEnabled() then
+      mc.enableCursors()
+    else
+      mc.clearCursors()
+    end
+  end)
+end)
+
+-- Unified Normal-mode <Esc>: Clear active snippets & search highlights when single cursor
+keymap("n", "<Esc>", function()
+  if vim.snippet.active() then
+    vim.snippet.stop()
+  end
+  vim.cmd("nohlsearch")
+end, { silent = true })
+
+-- Smooth half-page scrolling on <C-j> / <C-k> (since <C-d> is Sublime Multi-Cursor)
+keymap({ "n", "x" }, "<C-j>", "<C-d>", { silent = true, desc = "Smooth Scroll Down" })
+keymap({ "n", "x" }, "<C-k>", "<C-u>", { silent = true, desc = "Smooth Scroll Up" })
+
+-- Buffer, Clipboard & Undo Maintenance
+keymap("n", "<leader>x", function() MiniBufremove.delete(0, true) end, { silent = true, desc = "Delete Buffer" })
+keymap({ "n", "v" }, "<Leader>y", '"+y', { silent = true, desc = "Yank to Clipboard" })
+keymap({ "n", "v" }, "<Leader>p", '"+p', { silent = true, desc = "Paste from Clipboard" })
+keymap("n", "<leader>tu", "<cmd>UndoClean<CR>", { silent = true, desc = "Purge Orphaned Undos" })
+
+-- Seamless Find & Replace Mappings (Buffer-wide with live preview)
+keymap("n", "<leader>rw", [[:%s/\<<C-r><C-w>\>/<C-r><C-w>/gI<Left><Left><Left>]], { desc = "Replace Word in Buffer" })
+keymap("v", "<leader>rs", [["hy:%s/\V<C-r>=escape(@h,'/\')<CR>/<C-r>=escape(@h,'/\')<CR>/gI<Left><Left><Left>]], { desc = "Replace Selection in Buffer" })
 
 -- ============================================================================
 -- Colorscheme: Official Nord Specification via mini.base16 + Custom Italics
@@ -206,7 +239,16 @@ local function apply_nord_spec_and_italics()
   set_hl("Directory",    { fg = nord.cyan })
   set_hl("Title",        { fg = nord.cyan, bold = true })
 
-  -- Autocomplete Menu (Clean dark grey selection + cyan matching text, no white box)
+  -- Cohesive Multi-Cursor Nord Highlights (multicursor.nvim)
+  set_hl("MultiCursorCursor",         { fg = nord.bg_dark, bg = nord.cyan, bold = true })
+  set_hl("MultiCursorVisual",         { bg = nord.bg_select })
+  set_hl("MultiCursorSign",           { fg = nord.cyan, bg = nord.bg_dark })
+  set_hl("MultiCursorMatchPreview",   { fg = nord.bg_dark, bg = nord.yellow })
+  set_hl("MultiCursorDisabledCursor", { fg = nord.bg_dark, bg = nord.comment })
+  set_hl("MultiCursorDisabledVisual", { bg = nord.bg_light })
+  set_hl("MultiCursorDisabledSign",   { fg = nord.comment, bg = nord.bg_dark })
+
+  -- Autocomplete Menu (Dark grey selection bar + cyan match characters, no white boxes)
   set_hl("Pmenu",          { fg = nord.fg_dark, bg = nord.bg_light })
   set_hl("PmenuSel",       { fg = nord.fg_light, bg = nord.bg_select, bold = true })
   set_hl("PmenuMatch",     { fg = nord.cyan, bg = "NONE", bold = true })
@@ -605,7 +647,7 @@ vim.schedule(function()
 end)
 
 -- ============================================================================
--- Super-Tab, Enter, and Snippet Exit Controls
+-- Super-Tab, Enter (with IDE auto-indent between {}), and Snippet Exit
 -- ============================================================================
 local function feedkeys(keys)
   vim.api.nvim_feedkeys(vim.keycode(keys), "n", false)
@@ -631,13 +673,14 @@ keymap({ "i", "s" }, "<S-Tab>", function()
   end
 end, { silent = true })
 
+-- <CR>: Confirm popup selection if visible; otherwise execute mini.pairs smart expansion
 keymap("i", "<CR>", function()
   if vim.fn.pumvisible() == 1 then
     feedkeys("<C-y>")
   else
     feedkeys(MiniPairs.cr())
   end
-end, { silent = true })
+end, { silent = true, expr = false })
 
 keymap({ "i", "s" }, "jj", function()
   if vim.snippet.active() then
@@ -652,6 +695,7 @@ vim.api.nvim_create_autocmd("ModeChanged", {
     if vim.snippet.active() then
       vim.snippet.stop()
     end
+    vim.b.minipairs_disable = mc.hasCursors()
   end,
 })
 
@@ -704,6 +748,10 @@ miniclue.setup({
   },
   clues = {
     { mode = "n", keys = "<Leader>f", desc = "+Find (Pick)" },
+    { mode = "n", keys = "<Leader>m", desc = "+Multi-Cursor" },
+    { mode = "x", keys = "<Leader>m", desc = "+Multi-Cursor" },
+    { mode = "n", keys = "<Leader>r", desc = "+Replace" },
+    { mode = "x", keys = "<Leader>r", desc = "+Replace" },
     { mode = "n", keys = "<Leader>t", desc = "+Cleanup" },
     miniclue.gen_clues.builtin_completion(),
     miniclue.gen_clues.g(),
@@ -772,54 +820,75 @@ statusline.setup({
 -- ============================================================================
 local cheatsheet_sections = {
   {
+    title = "Sublime Multi-Cursor (multicursor.nvim)",
+    items = {
+      { key = "<C-d>",           desc = "Select word & add cursor at next match" },
+      { key = "<C-x>",           desc = "Skip current match & jump to next" },
+      { key = "<Space>ma",       desc = "Add cursors to ALL matches in buffer" },
+      { key = "<C-Up>/<C-Down>", desc = "Add cursor directly above / below" },
+      { key = "Left / Right",    desc = "Cycle main cursor between multi-cursors" },
+      { key = "<Esc>",           desc = "Clear all extra cursors" },
+    },
+  },
+  {
     title = "Navigation & Jumping",
     items = {
-      { key = "<CR>",          desc = "2D Jump to any word on screen (mini.jump2d)" },
-      { key = "[d / ]d",       desc = "Previous / Next LSP diagnostic (mini.bracketed)" },
-      { key = "[b / ]b",       desc = "Previous / Next buffer (mini.bracketed)" },
-      { key = "[q / ]q",       desc = "Previous / Next quickfix item (mini.bracketed)" },
-      { key = "<C-d> / <C-u>", desc = "Smooth half-page scroll down / up (mini.animate)" },
+      { key = "<CR>",            desc = "2D Jump to any word on screen (mini.jump2d)" },
+      { key = "[d / ]d",         desc = "Previous / Next LSP diagnostic (mini.bracketed)" },
+      { key = "[b / ]b",         desc = "Previous / Next buffer (mini.bracketed)" },
+      { key = "[q / ]q",         desc = "Previous / Next quickfix item (mini.bracketed)" },
+      { key = "<C-j> / <C-k>",   desc = "Smooth half-page scroll down / up (mini.animate)" },
     },
   },
   {
     title = "Editing & Selection",
     items = {
-      { key = "Alt + h/j/k/l", desc = "Move line or visual selection (mini.move)" },
-      { key = "ys{motion}{c}", desc = "Add surrounding character (mini.surround)" },
-      { key = "ds{char}",      desc = "Delete surrounding character (mini.surround)" },
-      { key = "cs{old}{new}",  desc = "Replace surrounding character (mini.surround)" },
-      { key = "gc / gcc",      desc = "Toggle comment selection / line (mini.comment)" },
-      { key = "vaq / ciq",     desc = "Select / change inside any quote (mini.ai)" },
-      { key = "vab / cib",     desc = "Select / change inside any bracket (mini.ai)" },
-      { key = "vaf / cif",     desc = "Select / change function call (mini.ai)" },
-      { key = "vaa / cia",     desc = "Select / change function argument (mini.ai)" },
+      { key = "Alt + h/j/k/l",   desc = "Move line or visual selection (mini.move)" },
+      { key = "ys{motion}{c}",   desc = "Add surrounding character (mini.surround)" },
+      { key = "ds{char}",        desc = "Delete surrounding character (mini.surround)" },
+      { key = "cs{old}{new}",    desc = "Replace surrounding character (mini.surround)" },
+      { key = "gc / gcc",        desc = "Toggle comment selection / line (mini.comment)" },
+      { key = "vaq / ciq",       desc = "Select / change inside any quote (mini.ai)" },
+      { key = "vab / cib",       desc = "Select / change inside any bracket (mini.ai)" },
+      { key = "vaf / cif",       desc = "Select / change function call (mini.ai)" },
+      { key = "vaa / cia",       desc = "Select / change function argument (mini.ai)" },
+    },
+  },
+  {
+    title = "Find & Replace",
+    items = {
+      { key = "<Space>rw",       desc = "Replace word under cursor (Buffer-wide live preview)" },
+      { key = "<Space>rs",       desc = "Replace visual selection (Buffer-wide live preview)" },
+      { key = "<Space>fg",       desc = "Live grep across project (mini.pick)" },
+      { key = "<C-q> in Pick",   desc = "Send grep results to Quickfix list" },
+      { key = ":cfdo %s/a/b/g",  desc = "Run substitute across all Quickfix files" },
     },
   },
   {
     title = "Fuzzy Picker & Explorer",
     items = {
-      { key = "<Space>e",  desc = "Toggle centered file explorer (mini.files)" },
-      { key = "<Space>ff", desc = "Find files in project (mini.pick)" },
-      { key = "<Space>fg", desc = "Live grep across project (mini.pick)" },
-      { key = "<Space>fb", desc = "Switch open buffers (mini.pick)" },
-      { key = "<Space>fd", desc = "Workspace diagnostics (mini.extra)" },
-      { key = "<Space>fs", desc = "LSP document symbols (mini.extra)" },
-      { key = "<Space>fh", desc = "Search Neovim help tags (mini.pick)" },
-      { key = "<Space>fk", desc = "Fuzzy-search this Cheatsheet (mini.pick)" },
+      { key = "<Space>e",        desc = "Toggle centered file explorer (mini.files)" },
+      { key = "<Space>ff",       desc = "Find files in project (mini.pick)" },
+      { key = "<Space>fb",       desc = "Switch open buffers (mini.pick)" },
+      { key = "<Space>fd",       desc = "Workspace diagnostics (mini.extra)" },
+      { key = "<Space>fs",       desc = "LSP document symbols (mini.extra)" },
+      { key = "<Space>fh",       desc = "Search Neovim help tags (mini.pick)" },
+      { key = "<Space>fk",       desc = "Fuzzy-search this Cheatsheet (mini.pick)" },
     },
   },
   {
     title = "Core & Buffers",
     items = {
-      { key = "jj",          desc = "Exit Insert/Select mode & stop snippet" },
-      { key = "Tab / S-Tab", desc = "Cycle completion menu / jump snippet tabstops" },
-      { key = "<Space>x",    desc = "Delete current buffer cleanly (mini.bufremove)" },
-      { key = "<Space>y",    desc = "Yank selection/motion to system clipboard" },
-      { key = "<Space>p",    desc = "Paste from system clipboard" },
-      { key = ":w",          desc = "Save buffer (auto-trims trailing whitespace)" },
-      { key = "<Space>tu",   desc = "Purge orphaned undo files from disk" },
-      { key = "<Space>h",    desc = "Show notification history (mini.notify)" },
-      { key = "<Space>?",    desc = "Toggle this Nord Keymap Cheatsheet" },
+      { key = "jj",              desc = "Exit Insert/Select mode & stop snippet" },
+      { key = "Tab / S-Tab",     desc = "Cycle completion menu / jump snippet tabstops" },
+      { key = "<CR> in {}",      desc = "Smart new line with indentation (mini.pairs)" },
+      { key = "<Space>x",        desc = "Delete current buffer cleanly (mini.bufremove)" },
+      { key = "<Space>y",        desc = "Yank selection/motion to system clipboard" },
+      { key = "<Space>p",        desc = "Paste from system clipboard" },
+      { key = ":w",              desc = "Save buffer (auto-trims trailing whitespace)" },
+      { key = "<Space>tu",       desc = "Purge orphaned undo files from disk" },
+      { key = "<Space>h",        desc = "Show notification history (mini.notify)" },
+      { key = "<Space>?",        desc = "Toggle this Nord Keymap Cheatsheet" },
     },
   },
 }
@@ -844,7 +913,7 @@ local function toggle_cheatsheet()
     table.insert(highlights, { "FloatTitle", #lines - 1, 0, -1 })
 
     for _, item in ipairs(sec.items) do
-      local pad_key = string.format("    %-16s", item.key)
+      local pad_key = string.format("    %-18s", item.key)
       local line = pad_key .. " │ " .. item.desc
       table.insert(lines, line)
       local lnum = #lines - 1
@@ -865,7 +934,7 @@ local function toggle_cheatsheet()
     vim.api.nvim_buf_add_highlight(cs_buf, ns, hl[1], hl[2], hl[3], hl[4])
   end
 
-  local width = 74
+  local width = 76
   local height = math.min(#lines, vim.o.lines - 6)
   cs_win = vim.api.nvim_open_win(cs_buf, true, {
     relative = "editor",
@@ -894,7 +963,7 @@ local function pick_cheatsheet()
   local items = {}
   for _, sec in ipairs(cheatsheet_sections) do
     for _, item in ipairs(sec.items) do
-      table.insert(items, string.format("%-15s │ %-45s [%s]", item.key, item.desc, sec.title))
+      table.insert(items, string.format("%-18s │ %-45s [%s]", item.key, item.desc, sec.title))
     end
   end
   MiniPick.start({
