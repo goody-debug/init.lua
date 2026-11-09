@@ -1,9 +1,10 @@
--- Leader keys
+-- ============================================================================
+-- Leader Keys & Base Options
+-- ============================================================================
 vim.g.mapleader = " "
 vim.g.maplocalleader = " "
 vim.keymap.set({ "n", "v" }, "<Space>", "<Nop>", { silent = true })
 
--- Base options
 local opt = vim.opt
 vim.cmd("filetype plugin indent on")
 vim.cmd("syntax on")
@@ -34,9 +35,7 @@ opt.wildmenu = true
 opt.signcolumn = "yes"
 opt.updatetime = 300
 opt.hidden = true
-opt.undofile = true
 opt.mousescroll = "ver:3,hor:6"
-opt.undodir = vim.fn.expand("~/.config/nvim/undodir")
 opt.guicursor = "n-v-c:block,i-ci-ve:ver25,r-cr:hor20,o:hor50"
 opt.completeopt = "menuone,noinsert"
 opt.winborder = "rounded"
@@ -45,10 +44,76 @@ opt.pumheight = 8
 opt.pumwidth = 25
 opt.laststatus = 3
 
+-- Undo Configuration & History Limits
+opt.undofile = true
+opt.undolevels = 500
+opt.undodir = vim.fn.expand("~/.config/nvim/undodir")
+
+if vim.fn.isdirectory(vim.o.undodir) == 0 then
+  vim.fn.mkdir(vim.o.undodir, "p")
+end
+
+-- ============================================================================
+-- Orphaned Undo Files Automatic Cleanup
+-- ============================================================================
+local function clean_orphaned_undofiles(silent)
+  local undodir = vim.o.undodir
+  local handle = vim.uv.fs_scandir(undodir)
+  if not handle then return end
+
+  local count = 0
+  while true do
+    local name, type = vim.uv.fs_scandir_next(handle)
+    if not name then break end
+
+    if type == "file" then
+      local original_path = name:gsub("%%", "/")
+      if not original_path:match("^/") then
+        original_path = "/" .. original_path
+      end
+
+      if vim.uv.fs_stat(original_path) == nil then
+        local undo_path = undodir .. "/" .. name
+        local success = vim.uv.fs_unlink(undo_path)
+        if success then count = count + 1 end
+      end
+    end
+  end
+
+  if not silent and count > 0 then
+    vim.notify(string.format("Pruned %d orphaned undo file(s)", count), vim.log.levels.INFO)
+  end
+end
+
+vim.api.nvim_create_autocmd("BufWipeout", {
+  callback = function(ev)
+    local file = vim.api.nvim_buf_get_name(ev.buf)
+    if file ~= "" and vim.uv.fs_stat(file) == nil then
+      local undopath = vim.fn.undofile(file)
+      if vim.uv.fs_stat(undopath) then
+        vim.uv.fs_unlink(undopath)
+      end
+    end
+  end,
+})
+
+vim.api.nvim_create_autocmd("VimEnter", {
+  callback = function()
+    vim.schedule(function()
+      clean_orphaned_undofiles(true)
+    end)
+  end,
+})
+
+vim.api.nvim_create_user_command("UndoClean", function()
+  clean_orphaned_undofiles(false)
+end, { desc = "Purge orphaned undo history files" })
+
+-- ============================================================================
 -- Core Keymaps
+-- ============================================================================
 local keymap = vim.keymap.set
 
--- Normal mode Esc: cancel any lingering snippet session and clear search highlights
 keymap("n", "<Esc>", function()
   if vim.snippet.active() then
     vim.snippet.stop()
@@ -60,13 +125,14 @@ end, { expr = true, silent = true })
 keymap("n", "<leader>x", function() MiniBufremove.delete(0, true) end, { silent = true, desc = "Delete Buffer" })
 keymap({ "n", "v" }, "<Leader>y", '"+y', { silent = true, desc = "Yank to Clipboard" })
 keymap({ "n", "v" }, "<Leader>p", '"+p', { silent = true, desc = "Paste from Clipboard" })
+keymap("n", "<leader>tu", "<cmd>UndoClean<CR>", { silent = true, desc = "Purge Orphaned Undos" })
 
 -- ============================================================================
 -- Built-in Package Manager (vim.pack)
 -- ============================================================================
 vim.api.nvim_create_autocmd("PackChanged", {
   callback = function(ev)
-    local kind = ev.data.kind -- "install", "update", or "delete"
+    local kind = ev.data.kind
     local name = ev.data.spec.name
     vim.notify(string.format("Plugin %s: %s", kind, name), vim.log.levels.INFO)
   end,
@@ -82,9 +148,9 @@ vim.pack.add({
 -- Colorscheme: Official Nord Specification via mini.base16 + Custom Italics
 -- ============================================================================
 local nord = {
-  bg_dark    = "#2E3440", -- nord0 (Polar Night background)
+  bg_dark    = "#2E3440", -- nord0 (Polar Night base)
   bg_light   = "#3B4252", -- nord1 (Statusline base / Pmenu)
-  bg_select  = "#434C5E", -- nord2 (Visual selection / Statusline pill)
+  bg_select  = "#434C5E", -- nord2 (Visual selection / PmenuSel / Statusline pill)
   bg_gutter  = "#4C566A", -- nord3 (Borders / Inactive text)
   comment    = "#616E88", -- nord3 brightened (Official Nord comment contrast)
   fg_dark    = "#D8DEE9", -- nord4 (Snow Storm main text)
@@ -111,16 +177,6 @@ local function apply_nord_spec_and_italics()
   set_hl("NormalFloat",  { fg = nord.fg_dark, bg = nord.bg_dark })
   set_hl("FloatBorder",  { fg = nord.bg_gutter, bg = nord.bg_dark })
   set_hl("FloatTitle",   { fg = nord.cyan, bg = nord.bg_dark, bold = true })
-  set_hl("Pmenu",          { fg = nord.fg_dark, bg = nord.bg_light })
-  set_hl("PmenuSel",       { fg = nord.fg_light, bg = nord.bg_select, bold = true })
-  set_hl("PmenuMatch",     { fg = nord.cyan, bg = "NONE", bold = true })
-  set_hl("PmenuMatchSel",  { fg = nord.cyan, bg = "NONE", bold = true })
-  set_hl("PmenuKind",      { fg = nord.teal, bg = nord.bg_light })
-  set_hl("PmenuKindSel",   { fg = nord.teal, bg = nord.bg_select, bold = true })
-  set_hl("PmenuExtra",     { fg = nord.comment, bg = nord.bg_light })
-  set_hl("PmenuExtraSel",  { fg = nord.fg_dark, bg = nord.bg_select })
-  set_hl("PmenuThumb",     { bg = nord.bg_gutter })
-  set_hl("PmenuSbar",      { bg = nord.bg_light })
   set_hl("StatusLine",   { fg = nord.fg_dark, bg = nord.bg_light })
   set_hl("StatusLineNC", { fg = nord.bg_gutter, bg = nord.bg_dark })
   set_hl("WinSeparator", { fg = nord.bg_gutter, bg = nord.bg_dark })
@@ -133,12 +189,23 @@ local function apply_nord_spec_and_italics()
   set_hl("Directory",    { fg = nord.cyan })
   set_hl("Title",        { fg = nord.cyan, bold = true })
 
+  -- Autocomplete Menu (Clean dark grey selection bar + cyan matching text, no white box)
+  set_hl("Pmenu",          { fg = nord.fg_dark, bg = nord.bg_light })
+  set_hl("PmenuSel",       { fg = nord.fg_light, bg = nord.bg_select, bold = true })
+  set_hl("PmenuMatch",     { fg = nord.cyan, bg = "NONE", bold = true })
+  set_hl("PmenuMatchSel",  { fg = nord.cyan, bg = "NONE", bold = true })
+  set_hl("PmenuKind",      { fg = nord.teal, bg = nord.bg_light })
+  set_hl("PmenuKindSel",   { fg = nord.teal, bg = nord.bg_select, bold = true })
+  set_hl("PmenuExtra",     { fg = nord.comment, bg = nord.bg_light })
+  set_hl("PmenuExtraSel",  { fg = nord.fg_dark, bg = nord.bg_select })
+  set_hl("PmenuThumb",     { bg = nord.bg_gutter })
+  set_hl("PmenuSbar",      { bg = nord.bg_light })
+
   -- 2. Official Nord Syntax, Treesitter & LSP Semantic Tokens
   set_hl("Comment",                 { fg = nord.comment, italic = true })
   set_hl("@comment",                { fg = nord.comment, italic = true })
   set_hl("@lsp.type.comment",       { fg = nord.comment, italic = true })
 
-  -- Variables, Parameters & Fields (Snow Storm #D8DEE9 instead of Base16 Red)
   set_hl("Identifier",              { fg = nord.fg_dark })
   set_hl("@variable",               { fg = nord.fg_dark })
   set_hl("@variable.member",        { fg = nord.fg_dark })
@@ -152,7 +219,6 @@ local function apply_nord_spec_and_italics()
   set_hl("@lsp.type.property",      { fg = nord.fg_dark })
   set_hl("@lsp.type.namespace",     { fg = nord.fg_dark })
 
-  -- Functions & Methods (Frost Cyan #88C0D0)
   set_hl("Function",                { fg = nord.cyan })
   set_hl("@function",               { fg = nord.cyan })
   set_hl("@function.call",          { fg = nord.cyan })
@@ -165,7 +231,6 @@ local function apply_nord_spec_and_italics()
   set_hl("@lsp.type.function",      { fg = nord.cyan })
   set_hl("@lsp.type.method",        { fg = nord.cyan })
 
-  -- Keywords, Conditionals & Operators (Frost Blue #81A1C1)
   set_hl("Keyword",                 { fg = nord.blue, italic = true })
   set_hl("Statement",               { fg = nord.blue, italic = true })
   set_hl("Conditional",             { fg = nord.blue, italic = true })
@@ -184,7 +249,6 @@ local function apply_nord_spec_and_italics()
   set_hl("@keyword.exception",      { fg = nord.blue, italic = true })
   set_hl("@lsp.type.keyword",       { fg = nord.blue, italic = true })
 
-  -- Types, Structs & Classes (Frost Teal #8FBCBB & Frost Blue #81A1C1)
   set_hl("Type",                    { fg = nord.teal, italic = true })
   set_hl("Structure",               { fg = nord.teal, italic = true })
   set_hl("StorageClass",            { fg = nord.blue, italic = true })
@@ -198,7 +262,6 @@ local function apply_nord_spec_and_italics()
   set_hl("@lsp.type.interface",     { fg = nord.teal, italic = true })
   set_hl("@lsp.type.enum",          { fg = nord.teal, italic = true })
 
-  -- Strings, Numbers, Booleans & Constants
   set_hl("String",                  { fg = nord.green, italic = true })
   set_hl("@string",                 { fg = nord.green, italic = true })
   set_hl("@string.escape",          { fg = nord.yellow })
@@ -214,7 +277,6 @@ local function apply_nord_spec_and_italics()
   set_hl("@constant.builtin",       { fg = nord.blue, italic = true })
   set_hl("@lsp.type.enumMember",    { fg = nord.fg_dark, italic = true })
 
-  -- Punctuation, Macros & Tags
   set_hl("PreProc",                 { fg = nord.dark_blue })
   set_hl("Macro",                   { fg = nord.dark_blue, italic = true })
   set_hl("Special",                 { fg = nord.cyan })
@@ -226,7 +288,7 @@ local function apply_nord_spec_and_italics()
   set_hl("@tag.attribute",          { fg = nord.teal, italic = true })
   set_hl("@tag.delimiter",          { fg = nord.fg_light })
 
-  -- 3. Diagnostics, Jump2d, Pick, Files & Statusline in Official Nord
+  -- 3. Diagnostics, Jump2d, Pick & Statusline in Official Nord
   set_hl("DiagnosticError",         { fg = nord.red })
   set_hl("DiagnosticWarn",          { fg = nord.yellow })
   set_hl("DiagnosticInfo",          { fg = nord.cyan })
@@ -241,7 +303,7 @@ local function apply_nord_spec_and_italics()
   set_hl("MiniPickMatchMarked",     { fg = nord.bg_dark, bg = nord.cyan, bold = true })
   set_hl("MiniPickPrompt",          { fg = nord.cyan, bg = nord.bg_dark, bold = true })
 
-  -- Nord Statusline Mode Pills (Official Nord Lualine/Airline Colors)
+  -- Nord Statusline Badges (Lualine/Airline specification)
   set_hl("MiniStatuslineModeNormal",  { fg = nord.bg_dark, bg = nord.blue,   bold = true })
   set_hl("MiniStatuslineModeInsert",  { fg = nord.bg_dark, bg = nord.green,  bold = true })
   set_hl("MiniStatuslineModeVisual",  { fg = nord.bg_dark, bg = nord.teal,   bold = true })
@@ -249,23 +311,20 @@ local function apply_nord_spec_and_italics()
   set_hl("MiniStatuslineModeCommand", { fg = nord.bg_dark, bg = nord.yellow, bold = true })
   set_hl("MiniStatuslineModeOther",   { fg = nord.bg_dark, bg = nord.purple, bold = true })
 
-  -- Nord Statusline Stepped Sections (#434C5E pill -> #3B4252 bar)
   set_hl("MiniStatuslineDevinfo",     { fg = nord.fg_norm, bg = nord.bg_select })
   set_hl("MiniStatuslineFilename",    { fg = nord.fg_dark, bg = nord.bg_light })
   set_hl("MiniStatuslineFileinfo",    { fg = nord.fg_norm, bg = nord.bg_select })
   set_hl("MiniStatuslineInactive",    { fg = nord.bg_gutter, bg = nord.bg_dark })
 
-  -- Colored Diagnostic Dots inside the #434C5E Statusline Pill
   set_hl("NordStatusDiagError",       { fg = nord.red,       bg = nord.bg_select, bold = true })
   set_hl("NordStatusDiagWarn",        { fg = nord.yellow,    bg = nord.bg_select, bold = true })
   set_hl("NordStatusDiagInfo",        { fg = nord.cyan,      bg = nord.bg_select, bold = true })
   set_hl("NordStatusDiagHint",        { fg = nord.dark_blue, bg = nord.bg_select, bold = true })
 
-  -- 4. Keep native tabstops 100% invisible
+  -- Keep native tabstops invisible
   set_hl("SnippetTabstop", {})
   set_hl("SnippetTabstopActive", {})
 
-  -- 5. Apply your full italic_groups list across any remaining groups
   local italic_groups = {
     "Comment", "String", "@comment", "@string",
     "Keyword", "Statement", "Conditional", "Repeat", "Exception", "Include",
@@ -358,11 +417,11 @@ require("mini.move").setup({
   },
 })
 
--- 2D Jump on <CR> in Normal/Visual mode (Safely disabled in quickfix/special buffers)
+-- 2D Jump on <CR> in Normal/Visual mode
 local jump2d = require("mini.jump2d")
 jump2d.setup({
   spotter = jump2d.gen_spotter.pattern("[^%s%p]+"),
-  labels = "tnseriaogmplfuwyqbjdhvkzxc", -- Colemak-friendly home-row-first labels
+  labels = "tnseriaogmplfuwyqbjdhvkzxc",
   view = {
     dim = true,
     n_steps_ahead = 1,
@@ -372,7 +431,6 @@ jump2d.setup({
   },
 })
 
--- Prevent <CR> from hijacking Quickfix, Help, Command-line window, or mini.files/pick
 vim.api.nvim_create_autocmd({ "FileType", "BufWinEnter", "CmdwinEnter" }, {
   callback = function(ev)
     local bt = vim.bo[ev.buf].buftype
@@ -537,7 +595,7 @@ vim.schedule(function()
 end)
 
 -- ============================================================================
--- Super-Tab, Enter, and Clean Snippet Exit
+-- Super-Tab, Enter, and Snippet Exit Controls
 -- ============================================================================
 local function feedkeys(keys)
   vim.api.nvim_feedkeys(vim.keycode(keys), "n", false)
@@ -619,31 +677,24 @@ keymap("n", "<leader>h", function() MiniNotify.show_history() end, { silent = tr
 local miniclue = require("mini.clue")
 miniclue.setup({
   triggers = {
-    -- Leader triggers
     { mode = "n", keys = "<Leader>" },
     { mode = "x", keys = "<Leader>" },
-    -- Built-in completion
     { mode = "i", keys = "<C-x>" },
-    -- `g` key
     { mode = "n", keys = "g" },
     { mode = "x", keys = "g" },
-    -- Marks & Registers
     { mode = "n", keys = "'" },
     { mode = "n", keys = "`" },
     { mode = "n", keys = '"' },
     { mode = "x", keys = '"' },
-    -- Window commands
     { mode = "n", keys = "<C-w>" },
-    -- `z` key (folds/spelling)
     { mode = "n", keys = "z" },
     { mode = "x", keys = "z" },
-    -- Bracketed navigation (`[d`, `]d`, `[b`, `]b`, etc.)
     { mode = "n", keys = "[" },
     { mode = "n", keys = "]" },
   },
   clues = {
     { mode = "n", keys = "<Leader>f", desc = "+Find (Pick)" },
-    { mode = "n", keys = "<Leader>t", desc = "+Trim" },
+    { mode = "n", keys = "<Leader>t", desc = "+Trim/Cleanup" },
     miniclue.gen_clues.builtin_completion(),
     miniclue.gen_clues.g(),
     miniclue.gen_clues.marks(),
@@ -694,9 +745,9 @@ statusline.setup({
       return statusline.combine_groups({
         { hl = mode_hl,                  strings = { mode:upper() } },
         { hl = "MiniStatuslineDevinfo",  strings = { diagnostics } },
-        "%<", -- General truncate point
+        "%<",
         { hl = "MiniStatuslineFilename", strings = { filename } },
-        "%=", -- Right alignment split
+        "%=",
         { hl = mode_hl,                  strings = { "%l/%L:%c" } },
       })
     end,
@@ -707,16 +758,16 @@ statusline.setup({
 })
 
 -- ============================================================================
--- Custom Minimal Cheatsheet Plugin (<leader>? for Floating UI, <leader>fk for Picker)
+-- Minimal Cheatsheet Plugin (<leader>? for Floating UI, <leader>fk for Picker)
 -- ============================================================================
 local cheatsheet_sections = {
   {
     title = "Navigation & Jumping",
     items = {
-      { key = "<CR>",        desc = "2D Jump to any word on screen (mini.jump2d)" },
-      { key = "[d / ]d",     desc = "Previous / Next LSP diagnostic (mini.bracketed)" },
-      { key = "[b / ]b",     desc = "Previous / Next buffer (mini.bracketed)" },
-      { key = "[q / ]q",     desc = "Previous / Next quickfix item (mini.bracketed)" },
+      { key = "<CR>",          desc = "2D Jump to any word on screen (mini.jump2d)" },
+      { key = "[d / ]d",       desc = "Previous / Next LSP diagnostic (mini.bracketed)" },
+      { key = "[b / ]b",       desc = "Previous / Next buffer (mini.bracketed)" },
+      { key = "[q / ]q",       desc = "Previous / Next quickfix item (mini.bracketed)" },
       { key = "<C-d> / <C-u>", desc = "Smooth half-page scroll down / up (mini.animate)" },
     },
   },
@@ -750,14 +801,15 @@ local cheatsheet_sections = {
   {
     title = "Core & Buffers",
     items = {
-      { key = "jj",        desc = "Exit Insert/Select mode & stop snippet" },
+      { key = "jj",          desc = "Exit Insert/Select mode & stop snippet" },
       { key = "Tab / S-Tab", desc = "Cycle completion menu / jump snippet tabstops" },
-      { key = "<Space>x",  desc = "Delete current buffer cleanly (mini.bufremove)" },
-      { key = "<Space>y",  desc = "Yank selection/motion to system clipboard" },
-      { key = "<Space>p",  desc = "Paste from system clipboard" },
-      { key = "<Space>tw", desc = "Trim trailing whitespace & empty lines" },
-      { key = "<Space>h",  desc = "Show notification history (mini.notify)" },
-      { key = "<Space>?",  desc = "Toggle this Nord Keymap Cheatsheet" },
+      { key = "<Space>x",    desc = "Delete current buffer cleanly (mini.bufremove)" },
+      { key = "<Space>y",    desc = "Yank selection/motion to system clipboard" },
+      { key = "<Space>p",    desc = "Paste from system clipboard" },
+      { key = "<Space>tw",   desc = "Trim trailing whitespace & empty lines" },
+      { key = "<Space>tu",   desc = "Purge orphaned undo files from disk" },
+      { key = "<Space>h",    desc = "Show notification history (mini.notify)" },
+      { key = "<Space>?",    desc = "Toggle this Nord Keymap Cheatsheet" },
     },
   },
 }
@@ -774,7 +826,7 @@ local function toggle_cheatsheet()
 
   cs_buf = vim.api.nvim_create_buf(false, true)
   local lines = { "" }
-  local highlights = {} -- { group, line_idx (0-based), col_start, col_end }
+  local highlights = {}
 
   for _, sec in ipairs(cheatsheet_sections) do
     local header = "  ▍ " .. sec.title
@@ -803,7 +855,7 @@ local function toggle_cheatsheet()
     vim.api.nvim_buf_add_highlight(cs_buf, ns, hl[1], hl[2], hl[3], hl[4])
   end
 
-  local width = 72
+  local width = 74
   local height = math.min(#lines, vim.o.lines - 6)
   cs_win = vim.api.nvim_open_win(cs_buf, true, {
     relative = "editor",
@@ -828,7 +880,6 @@ local function toggle_cheatsheet()
   end
 end
 
--- Fuzzy-searchable Cheatsheet via mini.pick (<leader>fk)
 local function pick_cheatsheet()
   local items = {}
   for _, sec in ipairs(cheatsheet_sections) do
