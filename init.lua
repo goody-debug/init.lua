@@ -110,6 +110,23 @@ vim.api.nvim_create_user_command("UndoClean", function()
 end, { desc = "Purge orphaned undo history files" })
 
 -- ============================================================================
+-- Silent Auto-Trim Trailing Whitespace on Save
+-- ============================================================================
+vim.api.nvim_create_autocmd("BufWritePre", {
+  pattern = "*",
+  callback = function(args)
+    if vim.bo[args.buf].buftype ~= "" or not vim.bo[args.buf].modifiable then
+      return
+    end
+
+    local view = vim.fn.winsaveview()
+    vim.cmd([[%s/\s\+$//e]])
+    vim.cmd([[%s/\($\n\s*\)\+\%$//e]])
+    vim.fn.winrestview(view)
+  end,
+})
+
+-- ============================================================================
 -- Core Keymaps
 -- ============================================================================
 local keymap = vim.keymap.set
@@ -189,7 +206,7 @@ local function apply_nord_spec_and_italics()
   set_hl("Directory",    { fg = nord.cyan })
   set_hl("Title",        { fg = nord.cyan, bold = true })
 
-  -- Autocomplete Menu (Clean dark grey selection bar + cyan matching text, no white box)
+  -- Autocomplete Menu (Clean dark grey selection + cyan matching text, no white box)
   set_hl("Pmenu",          { fg = nord.fg_dark, bg = nord.bg_light })
   set_hl("PmenuSel",       { fg = nord.fg_light, bg = nord.bg_select, bold = true })
   set_hl("PmenuMatch",     { fg = nord.cyan, bg = "NONE", bold = true })
@@ -485,13 +502,6 @@ hipatterns.setup({
   },
 })
 
--- Trailing whitespace highlighter & trimmer
-require("mini.trailspace").setup()
-keymap("n", "<leader>tw", function()
-  MiniTrailspace.trim()
-  MiniTrailspace.trim_last_lines()
-end, { silent = true, desc = "Trim Whitespace" })
-
 -- ============================================================================
 -- Centered File Explorer (mini.files)
 -- ============================================================================
@@ -694,7 +704,7 @@ miniclue.setup({
   },
   clues = {
     { mode = "n", keys = "<Leader>f", desc = "+Find (Pick)" },
-    { mode = "n", keys = "<Leader>t", desc = "+Trim/Cleanup" },
+    { mode = "n", keys = "<Leader>t", desc = "+Cleanup" },
     miniclue.gen_clues.builtin_completion(),
     miniclue.gen_clues.g(),
     miniclue.gen_clues.marks(),
@@ -806,7 +816,7 @@ local cheatsheet_sections = {
       { key = "<Space>x",    desc = "Delete current buffer cleanly (mini.bufremove)" },
       { key = "<Space>y",    desc = "Yank selection/motion to system clipboard" },
       { key = "<Space>p",    desc = "Paste from system clipboard" },
-      { key = "<Space>tw",   desc = "Trim trailing whitespace & empty lines" },
+      { key = ":w",          desc = "Save buffer (auto-trims trailing whitespace)" },
       { key = "<Space>tu",   desc = "Purge orphaned undo files from disk" },
       { key = "<Space>h",    desc = "Show notification history (mini.notify)" },
       { key = "<Space>?",    desc = "Toggle this Nord Keymap Cheatsheet" },
