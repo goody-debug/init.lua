@@ -635,7 +635,7 @@ keymap("i", "<CR>", function()
   if vim.fn.pumvisible() == 1 then
     feedkeys("<C-y>")
   else
-    feedkeys("<CR>")
+    feedkeys(MiniPairs.cr())
   end
 end, { silent = true })
 
