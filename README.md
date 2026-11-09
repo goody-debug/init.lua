@@ -1,6 +1,6 @@
 # Minimal Neovim 0.12 Configuration
 
-A fast, lightweight Neovim (`v0.12+`) configuration built around Neovim's native APIs (`vim.pack` and `vim.lsp.config`) and **3 plugins**.
+A fast, lightweight Neovim (`v0.12+`) configuration built around Neovim's native APIs (`vim.pack` and `vim.lsp.config`) and **4 plugins**.
 
 ## Highlights
 
@@ -14,6 +14,7 @@ A fast, lightweight Neovim (`v0.12+`) configuration built around Neovim's native
 1. **[`echasnovski/mini.nvim`](https://github.com/echasnovski/mini.nvim)** — Clean Nord colorscheme, Autocomplete, and everything else.
 2. **[`nvim-treesitter/nvim-treesitter`](https://github.com/nvim-treesitter/nvim-treesitter)** — Parser and query installer paired with Neovim's native `vim.treesitter` highlighting and folding engine.
 3. **[`rafamadriz/friendly-snippets`](https://github.com/rafamadriz/friendly-snippets)**
+4. **[`mg979/vim-visual-multi'](https://github.com/mg979/vim-visual-multi)**
 
 ## Directory Structure
 
